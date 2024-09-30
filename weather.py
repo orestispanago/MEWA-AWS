@@ -4,14 +4,19 @@ import os
 import glob
 from json import JSONDecodeError
 import logging
-from authentication import bearer_token, refresh_token
+import logging.config
+from authentication import get_token
 import datetime
 from requests.adapters import HTTPAdapter, Retry
+import traceback
+import time
 
 
 logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
 
 logger = logging.getLogger(__name__)
+
+BEARER_TOKEN = get_token()
 
 
 def format_weather_response(df):
@@ -29,11 +34,11 @@ def get_weather(
     logger.debug(f"Getting weather records from {start_date} to {end_date}...")
     session = requests.Session()
     retries = Retry(
-        total=5, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504]
+        total=10, backoff_factor=0.2, status_forcelist=[500, 502, 503, 504, 104]
     )
     url = "https://app.mewa.gov.sa/wrapi/api/NCM_MEWA/ClimateRecords"
     session.mount(url, HTTPAdapter(max_retries=retries))
-    headers = {"Authorization": f"Bearer {bearer_token}"}
+    headers = {"Authorization": f"Bearer {BEARER_TOKEN}"}
     body = {"from": start_date, "to": end_date}
     resp = session.post(url, json=body, headers=headers, timeout=20)
     logger.debug(f"POST weather records. Status: {resp.status_code}")
@@ -48,30 +53,34 @@ def get_start_date():
     csv_files = glob.glob("data/weather/*/*.csv")
     if csv_files:
         last_csv_file = sorted(csv_files)[-1]
-        logger.info(f"Last monthly file: {last_csv_file}")
+        logger.info(f"Last file: {last_csv_file}")
         base_name = os.path.basename(last_csv_file)
         date_str = base_name.split("/")[-1].split("_")[-1].split(".")[0]
         date = datetime.datetime.strptime(date_str, "%Y%m%d")
         start_date = date.strftime("%Y-%m-%dT00:00:00.000Z")
     else:
-        logger.info("No csv files found. Using: {start_date}")
+        logger.info(f"No csv files found. Using: {start_date}")
     return start_date
 
 
-def download_weather_days():
-    utc_now = datetime.datetime.now(datetime.UTC)
+def download_weather_days(end_date=None):
+    if not end_date:
+        end_date = datetime.datetime.now(datetime.UTC)
     start_date = get_start_date()
-    dates = pd.date_range(start_date, utc_now)
+    dates = pd.date_range(start_date, end_date)
     for date in dates:
         date_str = date.strftime("%Y-%m-%dT00:00:00.000Z")
-        try:
-            df = get_weather(start_date=date_str, end_date=date_str)
-        except JSONDecodeError as e:
-            if "Expecting value" in str(e):
-                refresh_token()
+        while True:
+            try:
                 df = get_weather(start_date=date_str, end_date=date_str)
-            else:
-                logger.error(e)
+                break
+            except JSONDecodeError as e:
+                if "Expecting value" in str(e):
+                    logger.warning(
+                        "Received JSONDecodeError. Retrying in 60s..."
+                    )
+                    time.sleep(60)
+                    BEARER_TOKEN = get_token()
         if len(df) != 0:
             folder = f"data/weather/{date.strftime('%Y')}"
             os.makedirs(folder, exist_ok=True)
@@ -82,4 +91,24 @@ def download_weather_days():
             logger.info(f"No data for {start_date}.")
 
 
-download_weather_days()
+def download_till_yesterday():
+    utc_now = datetime.datetime.now(datetime.UTC)
+    yesterday = utc_now - datetime.timedelta(days=1)
+    start_date = get_start_date()
+    while start_date != yesterday.strftime("%Y-%m-%dT00:00:00.000Z"):
+        try:
+            download_weather_days(end_date=yesterday)
+        except ConnectionResetError:
+            logger.warning("ConnectionResetError. Retrying in 60s...")
+            time.sleep(60)
+            download_weather_days(end_date=yesterday)
+        except ValueError as e:
+            logger.warning(f"{e}. Exiting...")
+            break
+        except KeyboardInterrupt:
+            print("Exiting nicely...")
+            break
+        except:
+            logger.error("uncaught exception: %s", traceback.format_exc())
+
+download_till_yesterday()

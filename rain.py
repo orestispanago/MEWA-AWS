@@ -6,7 +6,7 @@ import datetime
 from dateutil.relativedelta import relativedelta
 import glob
 import os
-from authentication import bearer_token, refresh_token
+from authentication import get_token
 from requests.adapters import HTTPAdapter, Retry
 
 
@@ -14,18 +14,7 @@ logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
 
 logger = logging.getLogger(__name__)
 
-
-def get_stations_list():
-    logger.debug("Getting stations list...")
-    url = "https://app.mewa.gov.sa/wrapi/api/NCM_MEWA/stationsList"
-    headers = {"Authorization": f"Bearer {bearer_token}"}
-    resp = requests.get(url, headers=headers)
-    logger.debug(f"GET stations list. Status: {resp.status_code}")
-    # logger.debug(f"GET stations list. Response text: {resp.text}")
-    df = pd.DataFrame.from_dict(resp.json())
-    df = pd.json_normalize(df["response"])
-    logger.info(f"Retrieved {len(df)} stations.")
-    return df
+BEARER_TOKEN = get_token()
 
 
 def get_rain(
@@ -38,7 +27,7 @@ def get_rain(
     )
     url = "https://app.mewa.gov.sa/wrapi/api/NCM_MEWA/rainfallrecords"
     session.mount(url, HTTPAdapter(max_retries=retries))
-    headers = {"Authorization": f"Bearer {bearer_token}"}
+    headers = {"Authorization": f"Bearer {BEARER_TOKEN}"}
     body = {"from": start_date, "to": end_date}
     resp = session.post(url, headers=headers, json=body, timeout=60)
     logger.debug(f"POST rainfall records. Status: {resp.status_code}")
@@ -74,7 +63,7 @@ def download_months():
             df = get_rain(start_date=start_date, end_date=end_date)
         except JSONDecodeError as e:
             if "Expecting value" in str(e):
-                refresh_token()
+                BEARER_TOKEN = get_token()
                 df = get_rain(start_date=start_date, end_date=end_date)
             else:
                 logger.error(e)
@@ -85,9 +74,6 @@ def download_months():
         else:
             logger.info("No data from {ms} to {me}.")
 
-
-# stations = get_stations_list()
-# stations.to_csv("data/stations.csv", index=False)
 
 # download_rain_months()
 

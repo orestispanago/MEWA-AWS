@@ -10,16 +10,7 @@ MEDIUM_SIZE = 14
 BIGGER_SIZE = 42
 
 
-df = pd.read_csv("data/stations.csv")
-
-
-df["stationType"] = df["stationType"].str.replace("مطر يومي", "Rain")
-df["stationType"] = df["stationType"].str.replace(
-    "مناخية شاملة آلية", "Weather"
-)
-
-
-def plot_pie():
+def plot_pie(df):
     plt.figure(figsize=(6, 4))
     plt.rc("font", size=MEDIUM_SIZE)
     data = df["stationType"].value_counts()
@@ -40,11 +31,8 @@ def plot_pie():
     plt.show()
 
 
-# plot_pie()
-
-
-def plot_scatter_map():
-    reader = Reader("gadm41_SAU_shp/gadm41_SAU_1.shp")
+def plot_scatter_map(df):
+    reader = Reader("shapefiles/gadm41_SAU_1.shp")
     projection = ccrs.Mercator()
     plt.figure(figsize=(6, 4))
     plt.rc("font", size=MEDIUM_SIZE)
@@ -59,15 +47,12 @@ def plot_scatter_map():
     ax.legend(bbox_to_anchor=(1, 1.02), loc="upper left")
     plt.title("MEWA AWS")
     plt.tight_layout()
-    plt.savefig("plots/scatter_map_station_types")
+    plt.savefig("plots/scatter_map_station_types.png")
     plt.show()
 
 
-plot_scatter_map()
-
-
 def plot_scatter_map_values(df):
-    reader = Reader("gadm41_SAU_shp/gadm41_SAU_1.shp")
+    reader = Reader("shapefiles/gadm41_SAU_1.shp")
     projection = ccrs.Mercator()
     plt.figure(figsize=(6, 4))
     plt.rc("font", size=MEDIUM_SIZE)
@@ -84,17 +69,58 @@ def plot_scatter_map_values(df):
     clb.ax.set_title("values")
     plt.title("MEWA Rain stations")
     plt.tight_layout()
-    plt.savefig("plots/scatter_map_rain_values")
+    plt.savefig("plots/scatter_map_rain_values.png")
     plt.show()
 
 
-summary = pd.read_csv("data/rain_summary.csv", index_col="station_code")
-# summary = summary.loc[summary["values"]>5*365]
+def plot_hist(df, title="MEWA Rain data",
+              fname="plots/rain_stations_years.png"):
+    plt.figure(figsize=(6, 4))
+    plt.hist(df["years"], bins=50, edgecolor="k")
+    plt.rc("font", size=MEDIUM_SIZE)
+    plt.xlabel("Years of data")
+    plt.title(title)
+    plt.ylabel("Number of stations")
+    plt.tight_layout()
+    plt.savefig(fname)
+    plt.show()
 
+
+stations = pd.read_csv("data/stations.csv")
+
+
+stations["stationType"] = stations["stationType"].str.replace(
+    "مطر يومي", "Rain"
+)
+stations["stationType"] = stations["stationType"].str.replace(
+    "مناخية شاملة آلية", "Weather"
+)
+
+plot_pie(stations)
+plot_scatter_map(stations)
+
+summary = pd.read_csv("data/rain_summary.csv", index_col="station_code")
 
 unknown_locations = summary.loc[summary["latitude"] == 0]
 known_locations = summary.loc[summary["latitude"] != 0]
+known_over_a_year = known_locations.loc[known_locations["years"] > 1]
 
-print(f"Known locations: {len(known_locations)}")
+print("========= Rain =========")
+print(f"Total rain stations: {len(summary)}")
 print(f"Unknown locations: {len(unknown_locations)}")
+print(f"Known locations: {len(known_locations)}")
+print(f"Known locations over a year: {len(known_over_a_year)}")
+
+plot_hist(known_over_a_year, title="MEWA rain data > 1 year")
+
 plot_scatter_map_values(known_locations)
+
+weather_summary = pd.read_csv("data/weather_summary.csv", index_col="station_code")
+weather_over_a_year = weather_summary.loc[weather_summary["years"] > 1]
+print("========= Weather =========")
+print(f"Total weather stations: {len(weather_summary)}")
+print(f"Known locations over a year: {len(weather_over_a_year)}")
+
+plot_hist(weather_over_a_year, 
+          title="MEWA weather data > 1 year",
+          fname="plots/weather_stations_years.png")
