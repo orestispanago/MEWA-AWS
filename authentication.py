@@ -21,7 +21,6 @@ def get_token():
         total=5, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504, 104]
     )
     session.mount(url, HTTPAdapter(max_retries=retries))
-    logger.debug("Getting token...")
     resp = session.post(url, json=body, timeout=10)
     logger.info(f"GET token. Status: {resp.status_code}")
     # logger.debug(f"Response text: {resp.text}")

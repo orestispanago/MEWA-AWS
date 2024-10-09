@@ -10,14 +10,12 @@ from authentication import get_token
 from requests.adapters import HTTPAdapter, Retry
 
 
-logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
 
 logger = logging.getLogger(__name__)
 
-BEARER_TOKEN = get_token()
 
 
-def get_rain(
+def get_rain(bearer_token,
     start_date="1953-09-01T00:00:00.000Z", end_date="1953-09-30T00:00:00.000Z"
 ):
     logger.debug(f"Getting rain records from {start_date} to {end_date}...")
@@ -27,7 +25,7 @@ def get_rain(
     )
     url = "https://app.mewa.gov.sa/wrapi/api/NCM_MEWA/rainfallrecords"
     session.mount(url, HTTPAdapter(max_retries=retries))
-    headers = {"Authorization": f"Bearer {BEARER_TOKEN}"}
+    headers = {"Authorization": f"Bearer {bearer_token}"}
     body = {"from": start_date, "to": end_date}
     resp = session.post(url, headers=headers, json=body, timeout=60)
     logger.debug(f"POST rainfall records. Status: {resp.status_code}")
@@ -60,11 +58,12 @@ def download_months():
         start_date = ms.strftime("%Y-%m-%dT00:00:00.000Z")
         end_date = me.strftime("%Y-%m-%dT00:00:00.000Z")
         try:
-            df = get_rain(start_date=start_date, end_date=end_date)
+            bearer_token = get_token()
+            df = get_rain(bearer_token, start_date=start_date, end_date=end_date)
         except JSONDecodeError as e:
             if "Expecting value" in str(e):
-                BEARER_TOKEN = get_token()
-                df = get_rain(start_date=start_date, end_date=end_date)
+                bearer_token = get_token()
+                df = get_rain(bearer_token, start_date=start_date, end_date=end_date)
             else:
                 logger.error(e)
         if len(df) != 0:
@@ -73,11 +72,3 @@ def download_months():
             logger.info(f"Stored {len(df)} records at {fname}.")
         else:
             logger.info("No data from {ms} to {me}.")
-
-
-# download_rain_months()
-
-
-# bearer_token = get_token()
-# refresh_token()
-download_months()

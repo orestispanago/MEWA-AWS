@@ -20,4 +20,5 @@ def get_stations_list():
 
 
 stations = get_stations_list()
+stations = stations.rename(columns={'longtuide': 'longitude'})
 stations.to_csv("data/stations.csv", index=False)

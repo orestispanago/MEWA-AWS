@@ -4,7 +4,6 @@ import os
 import glob
 from json import JSONDecodeError
 import logging
-import logging.config
 from authentication import get_token
 import datetime
 from requests.adapters import HTTPAdapter, Retry
@@ -12,11 +11,7 @@ import traceback
 import time
 
 
-logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
-
 logger = logging.getLogger(__name__)
-
-BEARER_TOKEN = get_token()
 
 
 def format_weather_response(df):
@@ -28,7 +23,7 @@ def format_weather_response(df):
     return stations
 
 
-def get_weather(
+def get_weather(bearer_token,
     start_date="1964-01-01T00:00:00.000Z", end_date="1964-01-01T00:00:00.000Z"
 ):
     logger.debug(f"Getting weather records from {start_date} to {end_date}...")
@@ -38,7 +33,7 @@ def get_weather(
     )
     url = "https://app.mewa.gov.sa/wrapi/api/NCM_MEWA/ClimateRecords"
     session.mount(url, HTTPAdapter(max_retries=retries))
-    headers = {"Authorization": f"Bearer {BEARER_TOKEN}"}
+    headers = {"Authorization": f"Bearer {bearer_token}"}
     body = {"from": start_date, "to": end_date}
     resp = session.post(url, json=body, headers=headers, timeout=20)
     logger.debug(f"POST weather records. Status: {resp.status_code}")
@@ -68,19 +63,19 @@ def download_weather_days(end_date=None):
         end_date = datetime.datetime.now(datetime.UTC)
     start_date = get_start_date()
     dates = pd.date_range(start_date, end_date)
+    bearer_token = get_token()
     for date in dates:
         date_str = date.strftime("%Y-%m-%dT00:00:00.000Z")
-        while True:
-            try:
-                df = get_weather(start_date=date_str, end_date=date_str)
-                break
-            except JSONDecodeError as e:
-                if "Expecting value" in str(e):
-                    logger.warning(
-                        "Received JSONDecodeError. Retrying in 60s..."
-                    )
-                    time.sleep(60)
-                    BEARER_TOKEN = get_token()
+        try:
+            df = get_weather(bearer_token, start_date=date_str, end_date=date_str)
+        except JSONDecodeError as e:
+            if "Expecting value" in str(e):
+                logger.warning(
+                    "Received JSONDecodeError. Retrying in 60s..."
+                )
+                time.sleep(60)
+                bearer_token = get_token()
+                df = get_weather(bearer_token, start_date=date_str, end_date=date_str)
         if len(df) != 0:
             folder = f"data/weather/{date.strftime('%Y')}"
             os.makedirs(folder, exist_ok=True)
@@ -111,4 +106,4 @@ def download_till_yesterday():
         except:
             logger.error("uncaught exception: %s", traceback.format_exc())
 
-download_till_yesterday()
+# download_till_yesterday()

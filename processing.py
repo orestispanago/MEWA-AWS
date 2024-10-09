@@ -1,7 +1,13 @@
 import pandas as pd
 import glob
 
-
+def add_coords_to_weather(df):
+    stations = pd.read_csv("data/stations.csv", index_col="stationCode")
+    weather_with_coords = pd.merge(stations[["latitude", "longitude"]], summary, left_index=True, 
+                  right_index=True)
+    weather_with_coords.index.name="station_code"
+    weather_with_coords.to_csv("data/weather_summary.csv", index=True)
+    
 # csv_files = sorted(glob.glob("data/rain/*.csv"))
 csv_files = sorted(glob.glob("data/weather/*/*.csv"))
 
@@ -44,5 +50,9 @@ for station in stations:
     df = pd.DataFrame([station_summary], columns=station_summary.keys())
     summary = pd.concat([summary, df])
 
+summary["station_code"] = summary["station_code"].astype(int)
+summary.set_index("station_code", inplace=True)
 # summary.to_csv("data/rain_summary.csv", index=False)
-summary.to_csv("data/weather_summary.csv", index=False)
+# summary.to_csv("data/weather_summary.csv")
+
+add_coords_to_weather(summary)
