@@ -73,8 +73,9 @@ def plot_scatter_map_values(df):
     plt.show()
 
 
-def plot_hist(df, title="MEWA Rain data",
-              fname="plots/rain_stations_years.png"):
+def plot_hist(
+    df, title="MEWA Rain data", fname="plots/rain_stations_years.png"
+):
     plt.figure(figsize=(6, 4))
     plt.hist(df["years"], bins=50, edgecolor="k")
     plt.rc("font", size=MEDIUM_SIZE)
@@ -115,12 +116,16 @@ plot_hist(known_over_a_year, title="MEWA rain data > 1 year")
 
 plot_scatter_map_values(known_locations)
 
-weather_summary = pd.read_csv("data/weather_summary.csv", index_col="station_code")
+weather_summary = pd.read_csv(
+    "data/weather_summary.csv", index_col="station_code"
+)
 weather_over_a_year = weather_summary.loc[weather_summary["years"] > 1]
 print("========= Weather =========")
 print(f"Total weather stations: {len(weather_summary)}")
 print(f"Known locations over a year: {len(weather_over_a_year)}")
 
-plot_hist(weather_over_a_year, 
-          title="MEWA weather data > 1 year",
-          fname="plots/weather_stations_years.png")
+plot_hist(
+    weather_over_a_year,
+    title="MEWA weather data > 1 year",
+    fname="plots/weather_stations_years.png",
+)

@@ -5,3 +5,4 @@ logs/
 *.csv
 *.json
 token
+*env/

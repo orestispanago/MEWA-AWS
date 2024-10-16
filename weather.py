@@ -23,8 +23,10 @@ def format_weather_response(df):
     return stations
 
 
-def get_weather(bearer_token,
-    start_date="1964-01-01T00:00:00.000Z", end_date="1964-01-01T00:00:00.000Z"
+def get_weather(
+    bearer_token,
+    start_date="1964-01-01T00:00:00.000Z",
+    end_date="1964-01-01T00:00:00.000Z",
 ):
     logger.debug(f"Getting weather records from {start_date} to {end_date}...")
     session = requests.Session()
@@ -67,15 +69,17 @@ def download_weather_days(end_date=None):
     for date in dates:
         date_str = date.strftime("%Y-%m-%dT00:00:00.000Z")
         try:
-            df = get_weather(bearer_token, start_date=date_str, end_date=date_str)
+            df = get_weather(
+                bearer_token, start_date=date_str, end_date=date_str
+            )
         except JSONDecodeError as e:
             if "Expecting value" in str(e):
-                logger.warning(
-                    "Received JSONDecodeError. Retrying in 60s..."
-                )
+                logger.warning("Received JSONDecodeError. Retrying in 60s...")
                 time.sleep(60)
                 bearer_token = get_token()
-                df = get_weather(bearer_token, start_date=date_str, end_date=date_str)
+                df = get_weather(
+                    bearer_token, start_date=date_str, end_date=date_str
+                )
         if len(df) != 0:
             folder = f"data/weather/{date.strftime('%Y')}"
             os.makedirs(folder, exist_ok=True)
@@ -105,5 +109,6 @@ def download_till_yesterday():
             break
         except:
             logger.error("uncaught exception: %s", traceback.format_exc())
+
 
 # download_till_yesterday()
